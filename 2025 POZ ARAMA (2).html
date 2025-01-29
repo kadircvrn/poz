@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poz Arama Motoru</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        table {
+            width: 80%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        input[type="number"] {
+            width: 80px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h2>2025 POZ ARAMA MOTORU</h2>
+    <textarea id="pozArama" placeholder="Her satıra bir Poz No girin..."></textarea>
+    <button onclick="topluAra()">Toplu Ara</button>
+    
+    <table id="pozTablo">
+        <tr>
+            <th>Poz No</th>
+            <th>Poz Tanım</th>
+            <th>Birim</th>
+            <th>Birim Fiyat</th>
+            <th>Montaj Fiyatı</th>
+            <th>Miktar</th>
+            <th>Tutar</th>
+        </tr>
+    </table>
+    <button onclick="excelIndir()">Excel Olarak İndir</button>
+
+    <script>
+        let unitPrices = [
+            { "pozNo": "12345", "pozTanim": "Örnek Poz", "birim": "m²", "birimFiyat": 100, "montajFiyati": 50 },
+            { "pozNo": "67890", "pozTanim": "Başka Bir Poz", "birim": "m³", "birimFiyat": 200, "montajFiyati": 75 }
+        ];
+        
+        function topluAra() {
+            let pozTablo = document.getElementById("pozTablo");
+            pozTablo.innerHTML = `<tr>
+                <th>Poz No</th>
+                <th>Poz Tanım</th>
+                <th>Birim</th>
+                <th>Birim Fiyat</th>
+                <th>Montaj Fiyatı</th>
+                <th>Miktar</th>
+                <th>Tutar</th>
+            </tr>`;
+            
+            let pozlar = document.getElementById("pozArama").value.split("\n").map(p => p.trim());
+            let filtrelenmisVeriler = unitPrices.filter(v => pozlar.includes(v.pozNo));
+            
+            filtrelenmisVeriler.forEach(veri => {
+                let row = pozTablo.insertRow();
+                row.innerHTML = `
+                    <td>${veri.pozNo}</td>
+                    <td>${veri.pozTanim}</td>
+                    <td>${veri.birim}</td>
+                    <td class="birimFiyat" data-value="${veri.birimFiyat}">${veri.birimFiyat.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL</td>
+                    <td class="montajFiyat" data-value="${veri.montajFiyati}">${veri.montajFiyati.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL</td>
+                    <td><input type="number" class="miktar" oninput="hesapla(this)" value="0"></td>
+                    <td class="tutar" data-value="0">0,00 TL</td>
+                `;
+            });
+        }
+
+        function hesapla(input) {
+            let row = input.parentElement.parentElement;
+            let birimFiyat = parseFloat(row.querySelector(".birimFiyat").dataset.value);
+            let montajFiyat = parseFloat(row.querySelector(".montajFiyat").dataset.value);
+            let miktar = parseFloat(input.value) || 0;
+            let tutarHücre = row.querySelector(".tutar");
+            let toplamTutar = (birimFiyat + montajFiyat) * miktar;
+            tutarHücre.dataset.value = toplamTutar;
+            tutarHücre.textContent = toplamTutar.toLocaleString("tr-TR", { minimumFractionDigits: 2 }) + " TL";
+            input.setAttribute("data-value", miktar);
+        }
+
+        function excelIndir() {
+            let table = document.getElementById("pozTablo");
+            let ws = XLSX.utils.table_to_sheet(table);
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Poz Arama Sonuçları");
+            
+            let range = XLSX.utils.decode_range(ws['!ref']);
+            for (let R = 1; R <= range.e.r; ++R) {
+                let row = table.rows[R];
+                if (row) {
+                    [3, 4, 5, 6].forEach((C) => {
+                        let cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+                        let cell = row.cells[C];
+                        if (cell) {
+                            let value = cell.querySelector("input") ? cell.querySelector("input").value : cell.dataset.value;
+                            ws[cellRef] = { t: "n", v: parseFloat(value) || 0, z: "#,##0.00" };
+                        }
+                    });
+                }
+            }
+            
+            XLSX.writeFile(wb, "Poz_Arama_Sonuclari.xlsx");
+        }
+    </script>
+</body>
+</html>
